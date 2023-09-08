@@ -1,28 +1,27 @@
 import { Redis } from "ioredis";
+import { Router } from '@stricjs/router';
+import { faker } from '@faker-js/faker';
 
 const redis = new Redis({
-  username: Bun.env.REDIS_USER,
-  password: Bun.env.REDIS_PASSWORD,
-  port: +(Bun.env.REDIS_PORT || 6379),
-  host: Bun.env.REDIS_HOST,
+  username: process.env.REDIS_USER,
+  password: process.env.REDIS_PASSWORD,
+  port: +(process.env.REDIS_PORT || 6379),
+  host: process.env.REDIS_HOST,
 });
 
-await redis.set("mykey", "value"); // Returns a promise which resolves to "OK" when the command succeeds.
+const rootResponse = async () => {
+  await redis.incr("total:requests");
+  const totalRequests = await redis.get("total:requests");
 
-// ioredis supports the node.js callback style
-redis.get("mykey", (err, result) => {
-  if (err) {
-    console.error('error', err);
-  } else {
-    console.log(result); // Prints "value"
-  }
-});
+  const message = faker.helpers.fake(
+    '{{person.prefix}} {{person.lastName}} is {{animal.dog}} today'
+  )
+  await redis.set("latest:message", message);
+  const latestMessage = await redis.get("latest:message");
+  return Response.json({ latestMessage, totalRequests })
+}
 
-const server = Bun.serve({
-  port: 3000,
-  fetch(req) {
-    return new Response(`Bun!`);
-  },
-});
+const router = new Router()
+  .get('/', rootResponse);
 
-console.log(`Listening on http://localhost:${server.port}...`);
+export default router;
